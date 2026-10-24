@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="hy" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>EduExam Pro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Armenian:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4', 100: '#dcfce7', 400: '#4ade80',
+              500: '#22c55e', 600: '#16a34a', 700: '#15803d',
+            },
+            dark: { bg: '#0b0f19', card: '#111827', border: '#1f2937' }
+          },
+          fontFamily: { sans: ['Noto Sans Armenian', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+ <style>
+  body {
+    font-family: 'Noto Sans Armenian', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.3s, color 0.3s;
+  }
+
+  /* Սահուն Scrollbar */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  .dark ::-webkit-scrollbar-thumb { background: #1f2937; }
+
+  /* Հատուկ Light Mode-ի համար */
+  html.light {
+    --tw-bg-opacity: 1;
+  }
+  html.light body {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+  }
+
+  /* Խաղաղ անցումներ (Smooth Transitions) */
+  * {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-duration: 200ms;
+  }
+</style>
+</head>
+<body class="bg-dark-bg text-gray-100">
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>
