@@ -1,6 +1,6 @@
 import { auth } from './auth';
 
-const API = 'http://localhost:4000/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 async function request(path, { method = 'GET', body, needAuth = true } = {}) {
   const headers = { 'Content-Type': 'application/json' };
@@ -55,6 +55,7 @@ export const api = {
   bulkImportQuestions: (subjectId, questions) => request('/bulk/questions', { method: 'POST', body: { subjectId, questions } }),
 
   getResults: () => request('/results'),
+  getStudentsCount: () => request('/results/students-count'),
   getResult: (id) => request(`/results/${id}`),
   getAttempts: (subjectId) => request(`/results/attempts/${subjectId}`),
   addResult: (data) => request('/results', { method: 'POST', body: data }),

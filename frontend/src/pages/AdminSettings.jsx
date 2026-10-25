@@ -34,7 +34,8 @@ export default function AdminSettings() {
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
   const [subjectForm, setSubjectForm] = useState(null);
-  const [saving, setSaving] = useState(false);
+  const [savingGlobal, setSavingGlobal] = useState(false);
+  const [savingSubject, setSavingSubject] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
 
   useEffect(() => {
@@ -53,27 +54,35 @@ export default function AdminSettings() {
   const updateSubject = (key, value) => setSubjectForm((prev) => ({ ...prev, [key]: value }));
 
   const saveGlobal = async () => {
-    setSaving(true);
+    setSavingGlobal(true);
     try {
       const updated = await api.saveSettings(settings);
       setSettings(updated);
       alert('✅ Կարգավորումները պահպանվեցին');
-    } catch (e) { alert('❌ ' + e.message); } finally { setSaving(false); }
+    } catch (e) { alert('❌ ' + e.message); } finally { setSavingGlobal(false); }
   };
 
   const saveSubject = async () => {
     if (!subjectForm) return;
+    setSavingSubject(true);
     try {
       await api.updateSubject(selectedSubject, subjectForm);
       const subs = await api.getSubjects();
       setSubjects(subs);
       alert('✅ Առարկայի կարգավորումները պահպանվեցին');
-    } catch (e) { alert('❌ ' + e.message); }
+    } catch (e) { alert('❌ ' + e.message); } finally { setSavingSubject(false); }
+  };
+
+  // ✅ ԺԱՄԱՆԱԿԻ ՄԱՔՐՄԱՆ ՖՈՒՆԿՑԻԱ
+  const clearSchedule = () => {
+    if (confirm('Մաքրե՞լ ժամանակացույցը: Թեստը կդառնա մշտապես ակտիվ:')) {
+      updateSubject('startTime', null);
+      updateSubject('endTime', null);
+    }
   };
 
   if (!settings) return <div className="text-center p-8"><i className="fa-solid fa-spinner fa-spin text-2xl text-brand-500"></i></div>;
 
-  // ✅ 24-ԺԱՄՅԱ ՖՈՒՆԿՑԻԱՆԵՐ (ԱՌԱՆՑ ԲՐԱՈՒԶԵՐԻ AM/PM-Ի)
   const getDatePart = (iso) => {
     if (!iso) return '';
     const d = new Date(iso);
@@ -81,7 +90,7 @@ export default function AdminSettings() {
   };
   const getHourPart = (iso) => iso ? String(new Date(iso).getHours()).padStart(2, '0') : '09';
   const getMinutePart = (iso) => iso ? String(new Date(iso).getMinutes()).padStart(2, '0') : '00';
-
+  
   const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
   const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
@@ -91,10 +100,8 @@ export default function AdminSettings() {
       updateSubject('endTime', null);
       return;
     }
-    const startStr = `${newDate}T${startH}:${startM}:00`;
-    updateSubject('startTime', new Date(startStr).toISOString());
-    const endStr = `${newDate}T${endH}:${endM}:00`;
-    updateSubject('endTime', new Date(endStr).toISOString());
+    updateSubject('startTime', new Date(`${newDate}T${startH}:${startM}:00`).toISOString());
+    updateSubject('endTime', new Date(`${newDate}T${endH}:${endM}:00`).toISOString());
   };
 
   return (
@@ -105,7 +112,6 @@ export default function AdminSettings() {
           { id: 'security', label: 'Անվտանգություն', icon: 'fa-shield-halved' },
           { id: 'email', label: 'Email', icon: 'fa-envelope' },
           { id: 'subject', label: 'Առարկաներ', icon: 'fa-book' },
-          // ✅ Խմբերի ներդիրը հանված է, քանի որ այն առանձին մենյուում է
         ].map((t) => (
           <button key={t.id} onClick={() => setActiveTab(t.id)}
             className={`px-3 sm:px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${activeTab === t.id ? 'bg-brand-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-bg'}`}>
@@ -123,8 +129,8 @@ export default function AdminSettings() {
           <Field label="Ժամանակի Նախազգուշացում (րոպե)" desc="Ուսանողը նախազգուշացում կստանա այսքան րոպե առաջ">
             <input type="number" min="1" max="30" value={settings.warningMinutes || '5'} onChange={(e) => updateSetting('warningMinutes', e.target.value)} className={inputClass} />
           </Field>
-          <button onClick={saveGlobal} disabled={saving} className="mt-4 w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl text-sm">
-            <i className="fa-solid fa-floppy-disk mr-2"></i>{saving ? 'Պահպանվում...' : 'Պահպանել'}
+          <button onClick={saveGlobal} disabled={savingGlobal} className="mt-4 w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
+            {savingGlobal ? <><i className="fa-solid fa-spinner fa-spin"></i> Պահպանվում...</> : <><i className="fa-solid fa-floppy-disk"></i> Պահպանել</>}
           </button>
         </div>
       )}
@@ -136,8 +142,8 @@ export default function AdminSettings() {
             <input type="number" min="1" max="10" value={settings.violationLimit || '3'} onChange={(e) => updateSetting('violationLimit', e.target.value)} className={inputClass} />
           </Field>
           <Toggle label="Fullscreen պարտադիր" desc="Ուսանողը պետք է ամբողջ էկրանով լինի" value={settings.fullscreenRequired ?? '1'} onChange={(v) => updateSetting('fullscreenRequired', v)} />
-          <button onClick={saveGlobal} disabled={saving} className="mt-4 w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl text-sm">
-            <i className="fa-solid fa-floppy-disk mr-2"></i>{saving ? 'Պահպանվում...' : 'Պահպանել'}
+          <button onClick={saveGlobal} disabled={savingGlobal} className="mt-4 w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
+            {savingGlobal ? <><i className="fa-solid fa-spinner fa-spin"></i> Պահպանվում...</> : <><i className="fa-solid fa-floppy-disk"></i> Պահպանել</>}
           </button>
         </div>
       )}
@@ -154,11 +160,11 @@ export default function AdminSettings() {
               <option value="none">Ոչ մեկին</option>
             </select>
           </Field>
-          <Field label="Ուսուցչի Email" desc="Երբ emailRecipients-ը 'teacher' կամ 'both' է">
+          <Field label="Ուսուցչի Email">
             <input type="email" value={settings.teacherEmail || ''} onChange={(e) => updateSetting('teacherEmail', e.target.value)} placeholder="teacher@school.com" className={inputClass} />
           </Field>
-          <button onClick={saveGlobal} disabled={saving} className="mt-4 w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl text-sm">
-            <i className="fa-solid fa-floppy-disk mr-2"></i>{saving ? 'Պահպանվում...' : 'Պահպանել'}
+          <button onClick={saveGlobal} disabled={savingGlobal} className="mt-4 w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
+            {savingGlobal ? <><i className="fa-solid fa-spinner fa-spin"></i> Պահպանվում...</> : <><i className="fa-solid fa-floppy-disk"></i> Պահպանել</>}
           </button>
         </div>
       )}
@@ -182,15 +188,20 @@ export default function AdminSettings() {
                 <Field label="Անցողիկ Շեմ (%)">
                   <input type="number" value={subjectForm.passMarkPercent} onChange={(e) => updateSubject('passMarkPercent', +e.target.value)} className={inputClass} />
                 </Field>
-                <Field label="Առավելագույն փորձեր" desc="0 = անսահմանափակ">
-                  <input type="number" value={subjectForm.maxAttempts} onChange={(e) => updateSubject('maxAttempts', +e.target.value)} className={inputClass} />
-                </Field>
               </div>
 
+              {/* ✅ ԺԱՄԱՆԱԿԱՑՈՒՅՑԸ ԵՎ ՄԱՔՐԵԼՈՒ ԿՈՃԱԿԸ */}
               <div className="p-4 bg-gray-50 dark:bg-dark-bg rounded-xl border border-gray-200 dark:border-dark-border space-y-3">
-                <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                  <i className="fa-regular fa-calendar-days text-brand-500"></i> Ժամանակացույց (24-ժամյա)
-                </h4>
+                <div className="flex justify-between items-center">
+                  <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                    <i className="fa-regular fa-calendar-days text-brand-500"></i> Ժամանակացույց (24-ժամյա)
+                  </h4>
+                  {(subjectForm.startTime || subjectForm.endTime) && (
+                    <button onClick={clearSchedule} className="text-xs font-bold text-red-500 hover:text-red-600 flex items-center gap-1 bg-red-500/10 px-2 py-1 rounded">
+                      <i className="fa-solid fa-trash-can"></i> Մաքրել
+                    </button>
+                  )}
+                </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <Field label="Օրը">
@@ -234,13 +245,11 @@ export default function AdminSettings() {
               </Field>
 
               <div className="space-y-1 mt-2">
-                <Toggle label="Հարցերի Shuffle" desc="Հարցերը պատահական կարգով" value={subjectForm.shuffleQuestions ? '1' : '0'} onChange={(v) => updateSubject('shuffleQuestions', +v)} />
-                <Toggle label="Ցույց տալ պատասխանները" desc="Քննությունից հետո ուսանողը տեսնում է ճիշտ պատասխանները" value={subjectForm.showAnswersAfter ? '1' : '0'} onChange={(v) => updateSubject('showAnswersAfter', +v)} />
                 <Toggle label="Թույլատրել կրկնել" desc="Ուսանողը կարող է նորից հանձնել" value={subjectForm.allowRetake ? '1' : '0'} onChange={(v) => updateSubject('allowRetake', +v)} />
               </div>
 
-              <button onClick={saveSubject} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl text-sm mt-4">
-                <i className="fa-solid fa-floppy-disk mr-2"></i>Պահպանել Առարկան
+              <button onClick={saveSubject} disabled={savingSubject} className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl text-sm mt-4 flex items-center justify-center gap-2">
+                {savingSubject ? <><i className="fa-solid fa-spinner fa-spin"></i> Պահպանվում...</> : <><i className="fa-solid fa-floppy-disk"></i> Պահպանել Առարկան</>}
               </button>
             </div>
           )}
