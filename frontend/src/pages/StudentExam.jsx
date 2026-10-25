@@ -30,7 +30,7 @@ export default function StudentExam({ user }) {
   const timerRef = useRef(null);
   const sessionRef = useRef(null);
   const isFinishingRef = useRef(false);
-  const hiddenTimeRef = useRef(null); // ✅ Հիշում ենք, թե երբ է էջը անտեսանելի դարձել
+  const hiddenTimeRef = useRef(null);
 
   const violationLimit = parseInt(settings.violationLimit || '3');
   const fullscreenRequired = settings.fullscreenRequired === '1';
@@ -50,26 +50,37 @@ export default function StudentExam({ user }) {
       
       for (const s of subs) {
         if (s.isActive === 0) continue; 
+        
         let allowedGroups = [];
         try { 
           const raw = s.allowedGroups !== undefined ? s.allowedGroups : s.allowedgroups;
           allowedGroups = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : []; 
         } catch (e) {}
 
-        if (allowedGroups.length > 0 && !allowedGroups.includes(user.group)) continue;
+        // ✅ ԱՅՍՏԵՂ Է ՈՒՂՂՎԱԾԸ
+        // Եթե խումբ չկա, ցուցակում ընդհանրապես չենք ավելացնում (փակ է բոլորի համար)
+        if (!Array.isArray(allowedGroups) || allowedGroups.length === 0) continue;
+        
+        // Եթե խումբ կա, բայց ուսանողի խումբը չկա ցուցակում, նույնպես չենք ավելացնում
+        if (!allowedGroups.includes(user.group)) continue;
 
-        try {
-          const attempts = await api.getAttempts(s.id);
-          if (s.allowRetake || attempts.count === 0) {
-            let qCount = 0;
-            try {
-              const qs = await api.getQuestions(s.id);
-              const limit = parseInt(s.questionsCount !== undefined ? s.questionsCount : s.questionscount) || 0;
-              qCount = limit > 0 ? Math.min(limit, qs.length) : qs.length;
-            } catch (e) { qCount = 0; }
-            list.push({ ...s, totalQuestions: qCount });
-          }
-        } catch (e) { console.error(e); }
+        const isStarted = !s.startTime || now >= new Date(s.startTime).getTime();
+        const isNotEnded = !s.endTime || now <= new Date(s.endTime).getTime();
+        
+        if (isStarted && isNotEnded) {
+          try {
+            const attempts = await api.getAttempts(s.id);
+            if (s.allowRetake || attempts.count === 0) {
+              let qCount = 0;
+              try {
+                const qs = await api.getQuestions(s.id);
+                const limit = parseInt(s.questionsCount !== undefined ? s.questionsCount : s.questionscount) || 0;
+                qCount = limit > 0 ? Math.min(limit, qs.length) : qs.length;
+              } catch (e) { qCount = 0; }
+              list.push({ ...s, totalQuestions: qCount });
+            }
+          } catch (e) { console.error(e); }
+        }
       }
       
       setAvailableSubjects(list);
@@ -104,15 +115,12 @@ export default function StudentExam({ user }) {
 
     const onCtx = (e) => { e.preventDefault(); };
     
-    // ✅ ԷԿՐԱՆԻ ԱՆՋԱՏՄԱՆ ՍՏՈՒԳՈՒՄ
     const onVis = () => { 
       if (document.hidden) {
-        hiddenTimeRef.current = Date.now(); // Հիշում ենք ժամը
+        hiddenTimeRef.current = Date.now();
       } else {
-        // Երբ նորից միացավ, ստուգում ենք քանի վայրկյան էր անջատված
         if (hiddenTimeRef.current && sessionRef.current?.status === 'in_progress') {
           const diff = Date.now() - hiddenTimeRef.current;
-          // Եթե 3 վայրկյանից ավելի էր անջատված, նոր զգուշացում տալիս ենք
           if (diff > 3000) {
             registerViolation('Դուք լքել եք քննության էջը (Էկրանն անջատվել է):');
           }
