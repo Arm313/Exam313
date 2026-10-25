@@ -30,6 +30,7 @@ export default function StudentExam({ user }) {
   const timerRef = useRef(null);
   const sessionRef = useRef(null);
   const isFinishingRef = useRef(false);
+  const hiddenTimeRef = useRef(null); // ✅ Հիշում ենք, թե երբ է էջը անտեսանելի դարձել
 
   const violationLimit = parseInt(settings.violationLimit || '3');
   const fullscreenRequired = settings.fullscreenRequired === '1';
@@ -81,6 +82,7 @@ export default function StudentExam({ user }) {
 
   useEffect(() => { loadData(); }, [user, navigate]);
 
+  // ✅ ԱՆՎՏԱՆԳՈՒԹՅՈՒՆ (Էկրանի անջատման պաշտպանությամբ)
   useEffect(() => {
     if (!session || session.status !== 'in_progress') return;
 
@@ -88,14 +90,37 @@ export default function StudentExam({ user }) {
       if (isFinishingRef.current) return; 
       setViolations((v) => {
         const n = v + 1;
-        if (n >= violationLimit) finishExam('Դադարեցվել է խախտումների պատճառով');
-        else { setViolationMsg(msg); setShowViolationModal(true); }
+        if (n >= violationLimit) {
+          setTimeout(() => finishExam('Դադարեցվել է խախտումների պատճառով'), 100);
+        } else {
+          setTimeout(() => {
+            setViolationMsg(msg); 
+            setShowViolationModal(true);
+          }, 100);
+        }
         return n;
       });
     };
 
     const onCtx = (e) => { e.preventDefault(); };
-    const onVis = () => { if (document.hidden) registerViolation('Դուք լքել եք քննության էջը:'); };
+    
+    // ✅ ԷԿՐԱՆԻ ԱՆՋԱՏՄԱՆ ՍՏՈՒԳՈՒՄ
+    const onVis = () => { 
+      if (document.hidden) {
+        hiddenTimeRef.current = Date.now(); // Հիշում ենք ժամը
+      } else {
+        // Երբ նորից միացավ, ստուգում ենք քանի վայրկյան էր անջատված
+        if (hiddenTimeRef.current && sessionRef.current?.status === 'in_progress') {
+          const diff = Date.now() - hiddenTimeRef.current;
+          // Եթե 3 վայրկյանից ավելի էր անջատված, նոր զգուշացում տալիս ենք
+          if (diff > 3000) {
+            registerViolation('Դուք լքել եք քննության էջը (Էկրանն անջատվել է):');
+          }
+        }
+        hiddenTimeRef.current = null;
+      }
+    };
+
     const onFs = () => { 
       if (fullscreenRequired && !document.fullscreenElement && sessionRef.current?.status === 'in_progress' && !isFinishingRef.current) {
         registerViolation('Դուրս եք եկել Fullscreen-ից:');
@@ -247,14 +272,7 @@ export default function StudentExam({ user }) {
 
   if (!user) return null;
 
-  if (step === 'loading') {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-dark-bg gap-4">
-        <i className="fa-solid fa-spinner fa-spin text-4xl text-brand-500"></i>
-        <p className="text-gray-400 text-sm animate-pulse">Բեռնվում է...</p>
-      </div>
-    );
-  }
+  if (step === 'loading') return <div className="min-h-screen flex flex-col items-center justify-center bg-dark-bg gap-4"><i className="fa-solid fa-spinner fa-spin text-4xl text-brand-500"></i><p className="text-gray-400 text-sm animate-pulse">Բեռնվում է...</p></div>;
 
   if (step === 'error') return (
     <div className="max-w-lg mx-auto p-4 mt-20 text-center space-y-4">
@@ -275,10 +293,8 @@ export default function StudentExam({ user }) {
             {availableSubjects.map(sub => {
               const tMinutes = sub.timerMinutes !== undefined ? sub.timerMinutes : sub.timerminutes;
               const pMark = sub.passMarkPercent !== undefined ? sub.passMarkPercent : sub.passmarkpercent;
-              
               const startT = sub.startTime ? new Date(sub.startTime).getTime() : null;
               const endT = sub.endTime ? new Date(sub.endTime).getTime() : null;
-              
               const isStarted = !startT || now >= startT;
               const isEnded = endT && now > endT;
               const isAvailable = isStarted && !isEnded;
@@ -286,14 +302,8 @@ export default function StudentExam({ user }) {
 
               return (
                 <div key={sub.id} onClick={() => { if (isAvailable) setSelectedSubject(sub); }} 
-                  className={`p-6 rounded-3xl border-2 transition-all relative overflow-hidden ${
-                    !isAvailable ? 'border-gray-200 dark:border-dark-border bg-gray-100 dark:bg-dark-bg/50 opacity-60 cursor-not-allowed' 
-                    : isSelected ? 'border-brand-500 bg-brand-500/5 scale-[1.02] cursor-pointer' 
-                    : 'border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card hover:border-brand-300 cursor-pointer'}`}>
-                  <h3 className="text-lg font-bold mb-2 flex items-center justify-between">
-                    {sub.name}
-                    {!isAvailable && <i className="fa-solid fa-lock text-gray-400"></i>}
-                  </h3>
+                  className={`p-6 rounded-3xl border-2 transition-all relative overflow-hidden ${!isAvailable ? 'border-gray-200 dark:border-dark-border bg-gray-100 dark:bg-dark-bg/50 opacity-60 cursor-not-allowed' : isSelected ? 'border-brand-500 bg-brand-500/5 scale-[1.02] cursor-pointer' : 'border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card hover:border-brand-300 cursor-pointer'}`}>
+                  <h3 className="text-lg font-bold mb-2 flex items-center justify-between">{sub.name}{!isAvailable && <i className="fa-solid fa-lock text-gray-400"></i>}</h3>
                   <div className="flex flex-wrap gap-4 text-xs text-gray-500">
                     <span><i className="fa-regular fa-clock mr-1"></i>{tMinutes} րոպե</span>
                     <span><i className="fa-solid fa-bullseye mr-1"></i>Շեմ՝ {pMark}%</span>
@@ -308,12 +318,6 @@ export default function StudentExam({ user }) {
                 </div>
               );
             })}
-            {availableSubjects.length === 0 && (
-              <div className="col-span-2 text-center py-8 text-gray-500">
-                <i className="fa-solid fa-check-circle text-4xl mb-3 text-emerald-500"></i>
-                <p>Դուք արդեն հանձնել եք բոլոր ակտիվ քննությունները:</p>
-              </div>
-            )}
           </div>
           {availableSubjects.length > 0 && (
             <div className="mt-8 text-center">
@@ -338,10 +342,7 @@ export default function StudentExam({ user }) {
         {showTimeWarning && (
           <div className="bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 p-4 rounded-2xl flex items-start gap-3 animate-pulse">
             <i className="fa-solid fa-triangle-exclamation text-2xl mt-0.5"></i>
-            <div>
-              <h4 className="font-bold">Ուշադրություն</h4>
-              <p className="text-sm mt-1">Մնացել է 5 րոպե: Ժամանակը լրանալուց հետո պատասխանները ավտոմատ կպահպանվեն:</p>
-            </div>
+            <div><h4 className="font-bold">Ուշադրություն</h4><p className="text-sm mt-1">Մնացել է 5 րոպե: Ժամանակը լրանալուց հետո պատասխանները ավտոմատ կպահպանվեն:</p></div>
           </div>
         )}
         <div className="bg-white dark:bg-dark-card border rounded-2xl p-4 flex justify-between items-center">
@@ -386,6 +387,26 @@ export default function StudentExam({ user }) {
             </button>
           </div>
         </div>
+
+        {showViolationModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
+            <div className="bg-white dark:bg-dark-card border border-red-500/50 rounded-3xl p-8 max-w-md w-full text-center space-y-6 shadow-2xl">
+              <div className="w-20 h-20 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto text-4xl">
+                <i className="fa-solid fa-triangle-exclamation"></i>
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Զգուշացում</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{violationMsg}</p>
+              </div>
+              <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 p-4 rounded-xl text-sm font-bold text-red-600 dark:text-red-400">
+                Գրանցված խախտումներ: {violations} / {violationLimit}
+              </div>
+              <button onClick={() => { setShowViolationModal(false); if (fullscreenRequired) document.documentElement.requestFullscreen().catch(() => {}); }} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 rounded-xl text-sm transition-colors">
+                Հասկանալի է, շարունակել
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

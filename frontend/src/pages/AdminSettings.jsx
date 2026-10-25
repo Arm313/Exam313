@@ -73,7 +73,6 @@ export default function AdminSettings() {
     } catch (e) { alert('❌ ' + e.message); } finally { setSavingSubject(false); }
   };
 
-  // ✅ ԺԱՄԱՆԱԿԻ ՄԱՔՐՄԱՆ ՖՈՒՆԿՑԻԱ
   const clearSchedule = () => {
     if (confirm('Մաքրե՞լ ժամանակացույցը: Թեստը կդառնա մշտապես ակտիվ:')) {
       updateSubject('startTime', null);
@@ -127,7 +126,13 @@ export default function AdminSettings() {
             <input value={settings.siteName || ''} onChange={(e) => updateSetting('siteName', e.target.value)} placeholder="EduExam Pro" className={inputClass} />
           </Field>
           <Field label="Ժամանակի Նախազգուշացում (րոպե)" desc="Ուսանողը նախազգուշացում կստանա այսքան րոպե առաջ">
-            <input type="number" min="1" max="30" value={settings.warningMinutes || '5'} onChange={(e) => updateSetting('warningMinutes', e.target.value)} className={inputClass} />
+            <input 
+              type="number" 
+              inputMode="numeric" 
+              value={settings.warningMinutes || 5} 
+              onChange={(e) => updateSetting('warningMinutes', e.target.value)} 
+              className={inputClass} 
+            />
           </Field>
           <button onClick={saveGlobal} disabled={savingGlobal} className="mt-4 w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
             {savingGlobal ? <><i className="fa-solid fa-spinner fa-spin"></i> Պահպանվում...</> : <><i className="fa-solid fa-floppy-disk"></i> Պահպանել</>}
@@ -139,7 +144,15 @@ export default function AdminSettings() {
         <div className="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-2xl p-5">
           <h3 className="text-base font-bold mb-2"><i className="fa-solid fa-shield-halved text-brand-500 mr-2"></i>Անվտանգության Կարգավորումներ</h3>
           <Field label="Խախտումների Սահմանաչափ" desc="Այսքան խախտումից հետո քննությունը կդադարեցվի">
-            <input type="number" min="1" max="10" value={settings.violationLimit || '3'} onChange={(e) => updateSetting('violationLimit', e.target.value)} className={inputClass} />
+            <input 
+              type="number" 
+              inputMode="numeric" 
+              min="1" 
+              max="10" 
+              value={settings.violationLimit || 3} 
+              onChange={(e) => updateSetting('violationLimit', e.target.value)} 
+              className={inputClass} 
+            />
           </Field>
           <Toggle label="Fullscreen պարտադիր" desc="Ուսանողը պետք է ամբողջ էկրանով լինի" value={settings.fullscreenRequired ?? '1'} onChange={(v) => updateSetting('fullscreenRequired', v)} />
           <button onClick={saveGlobal} disabled={savingGlobal} className="mt-4 w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
@@ -148,6 +161,7 @@ export default function AdminSettings() {
         </div>
       )}
 
+      {/* ✅ EMAIL-Ի ԿԱՐԳԱՎՈՐՈՒՄՆԵՐԸ ԹՈՂՆՎԱԾ ԵՆ ԻՐԵՆՑ ՏԵՂՈՒՄ */}
       {activeTab === 'email' && (
         <div className="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-2xl p-5">
           <h3 className="text-base font-bold mb-2"><i className="fa-solid fa-envelope text-brand-500 mr-2"></i>Email Կարգավորումներ</h3>
@@ -183,18 +197,38 @@ export default function AdminSettings() {
                   <input value={subjectForm.name} onChange={(e) => updateSubject('name', e.target.value)} className={inputClass} />
                 </Field>
                 <Field label="Տևողություն (ր)">
-                  <input type="number" value={subjectForm.timerMinutes} onChange={(e) => updateSubject('timerMinutes', +e.target.value)} className={inputClass} />
+                  <input 
+                    type="number" 
+                    inputMode="numeric" 
+                    value={subjectForm.timerMinutes} 
+                    onChange={(e) => updateSubject('timerMinutes', e.target.value)} 
+                    className={inputClass} 
+                  />
                 </Field>
                 <Field label="Անցողիկ Շեմ (%)">
-                  <input type="number" value={subjectForm.passMarkPercent} onChange={(e) => updateSubject('passMarkPercent', +e.target.value)} className={inputClass} />
+                  <input 
+                    type="number" 
+                    inputMode="numeric" 
+                    value={subjectForm.passMarkPercent} 
+                    onChange={(e) => updateSubject('passMarkPercent', e.target.value)} 
+                    className={inputClass} 
+                  />
+                </Field>
+                <Field label="Հարցերի Քանակ" desc="0 = բոլոր հարցերը">
+                  <input 
+                    type="number" 
+                    inputMode="numeric" 
+                    value={subjectForm.questionsCount} 
+                    onChange={(e) => updateSubject('questionsCount', e.target.value)} 
+                    className={inputClass} 
+                  />
                 </Field>
               </div>
 
-              {/* ✅ ԺԱՄԱՆԱԿԱՑՈՒՅՑԸ ԵՎ ՄԱՔՐԵԼՈՒ ԿՈՃԱԿԸ */}
               <div className="p-4 bg-gray-50 dark:bg-dark-bg rounded-xl border border-gray-200 dark:border-dark-border space-y-3">
                 <div className="flex justify-between items-center">
                   <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                    <i className="fa-regular fa-calendar-days text-brand-500"></i> Ժամանակացույց (24-ժամյա)
+                    <i className="fa-regular fa-calendar-days text-brand-500"></i> Ժամանակացույց
                   </h4>
                   {(subjectForm.startTime || subjectForm.endTime) && (
                     <button onClick={clearSchedule} className="text-xs font-bold text-red-500 hover:text-red-600 flex items-center gap-1 bg-red-500/10 px-2 py-1 rounded">
@@ -231,18 +265,6 @@ export default function AdminSettings() {
                   </Field>
                 </div>
               </div>
-
-              <Field label="Հարցերի Քանակ (Պատահական ընտրություն)">
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={subjectForm.questionsCount > 0} onChange={(e) => updateSubject('questionsCount', e.target.checked ? 5 : 0)} className="w-4 h-4 accent-brand-500" />
-                    <span className="text-sm">Սահմանափակել հարցերի քանակը</span>
-                  </label>
-                  {subjectForm.questionsCount > 0 && (
-                    <input type="number" min="1" value={subjectForm.questionsCount} onChange={(e) => updateSubject('questionsCount', +e.target.value)} className="w-24 bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border rounded-lg p-2 text-sm" />
-                  )}
-                </div>
-              </Field>
 
               <div className="space-y-1 mt-2">
                 <Toggle label="Թույլատրել կրկնել" desc="Ուսանողը կարող է նորից հանձնել" value={subjectForm.allowRetake ? '1' : '0'} onChange={(v) => updateSubject('allowRetake', +v)} />

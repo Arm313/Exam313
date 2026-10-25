@@ -16,8 +16,6 @@ export default function AdminResults() {
   const [filterArchive, setFilterArchive] = useState('active');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
-  
-  // ✅ Գնահատման Loading վիճակ
   const [grading, setGrading] = useState(false);
 
   const load = async () => {
@@ -73,7 +71,6 @@ export default function AdminResults() {
     } catch (e) { alert(e.message); setLoading(false); }
   };
 
-  // ✅ ԳՆԱՀԱՏՄԱՆ ՖՈՒՆԿՑԻԱ
   const handleGrade = async (resultId, questionId, earnedPoints, maxPoints) => {
     const safePoints = Math.min(Number(earnedPoints), maxPoints);
     setGrading(true);
@@ -123,17 +120,11 @@ export default function AdminResults() {
     doc.text(`Ամսաթիվ: ${new Date(studentDetail.date).toLocaleString('hy-AM')}`, 14, 35);
     doc.text(`Միավոր: ${studentDetail.score} (${studentDetail.percentage}%)`, 14, 40);
     if (studentDetail.studentEmail) doc.text(`Email: ${studentDetail.studentEmail}`, 14, 45);
-    
     if (studentDetail.answers && Array.isArray(studentDetail.answers)) {
       autoTable(doc, {
         startY: 55,
         head: [['#', 'Հարց', 'Ուսանողի պատասխանը', 'Ճիշտ պատասխանը', 'Միավոր']],
-        body: studentDetail.answers.map((a, i) => [
-          i + 1, a.text, 
-          a.type === 'text' ? (a.selected || '—') : (a.selected !== null && a.options && a.options[a.selected] ? a.options[a.selected] : '—'),
-          a.type === 'text' ? '—' : (a.options && a.options[a.correct] ? a.options[a.correct] : '—'),
-          a.type === 'text' ? `${a.earnedPoints ?? 0}/${a.points}` : (a.isCorrect ? `✅ ${a.points}` : `❌ 0`)
-        ]),
+        body: studentDetail.answers.map((a, i) => [i + 1, a.text, a.type === 'text' ? (a.selected || '—') : (a.selected !== null && a.options && a.options[a.selected] ? a.options[a.selected] : '—'), a.type === 'text' ? '—' : (a.options && a.options[a.correct] ? a.options[a.correct] : '—'), a.type === 'text' ? `${a.earnedPoints ?? 0}/${a.points}` : (a.isCorrect ? `✅ ${a.points}` : `❌ 0`)]),
         styles: { font: 'NotoSansArmenian', fontSize: 8 },
         headStyles: { fillColor: [22, 163, 74], font: 'NotoSansArmenian' },
         bodyStyles: { font: 'NotoSansArmenian' },
@@ -260,7 +251,7 @@ export default function AdminResults() {
         </>
       )}
 
-      {/* ✅ ՄՈԴԱԼ - ԳՆԱՀԱՏՄԱՄԲ */}
+      {/* ✅ ՄՈԴԱԼ - ԳՆԱՀԱՏՄԱՄԲ ԵՎ ԽՄԲԱԳՐՄԱՄԲ */}
       {detail && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDetail(null)}>
           <div className="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-3xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -286,12 +277,11 @@ export default function AdminResults() {
                   
                   {a.type === 'text' ? (
                     <div>
-                      {/* Ուսանողի պատասխանը */}
                       <div className="bg-gray-50 dark:bg-dark-bg text-gray-800 dark:text-gray-200 p-2 rounded mb-3 border border-gray-200 dark:border-dark-border">
                         {a.selected || 'Չի պատասխանել'}
                       </div>
 
-                      {/* ✅ ԳՆԱՀԱՏՄԱՆ ՀԱՏՎԱԾԸ */}
+                      {/* ✅ ԳՆԱՀԱՏՄԱՆ ԵՎ ԽՄԲԱԳՐՄԱՆ ՀԱՏՎԱԾԸ */}
                       {a.earnedPoints == null ? (
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-amber-600 dark:text-amber-400">Միավոր (0-{a.points}):</span>
@@ -313,8 +303,21 @@ export default function AdminResults() {
                           </button>
                         </div>
                       ) : (
-                        <div className="text-emerald-600 dark:text-emerald-400 font-bold">
-                          Գնահատված է՝ {a.earnedPoints} / {a.points}
+                        <div className="flex items-center gap-3">
+                          <div className="text-emerald-600 dark:text-emerald-400 font-bold">
+                            Գնահատված է՝ {a.earnedPoints} / {a.points}
+                          </div>
+                          <button 
+                            onClick={() => {
+                              setDetail(prev => ({
+                                ...prev,
+                                answers: prev.answers.map(ans => ans.questionId === a.questionId ? { ...ans, earnedPoints: null } : ans)
+                              }));
+                            }} 
+                            className="text-xs text-blue-500 hover:text-blue-600 font-bold flex items-center gap-1 bg-blue-500/10 px-2 py-1 rounded"
+                          >
+                            <i className="fa-solid fa-pen"></i> Խմբագրել
+                          </button>
                         </div>
                       )}
                     </div>
