@@ -3,33 +3,31 @@ const router = express.Router();
 const db = require('../db');
 const { requireAdmin } = require('../auth');
 
-// ✅ GET /settings - հասանելի է բոլորին
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const rows = db.prepare('SELECT * FROM global_settings').all();
+    const rows = await db.query('SELECT * FROM global_settings');
     const obj = {};
-    rows.forEach((r) => (obj[r.key] = r.value));
+    rows.rows.forEach((r) => (obj[r.key] = r.value));
     res.json(obj);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PUT /settings - միայն ադմինին
-router.put('/', requireAdmin, (req, res) => {
-  const updates = req.body;
-  for (const [key, value] of Object.entries(updates)) {
-    const exists = db.prepare('SELECT key FROM global_settings WHERE key = ?').get(key);
-    if (exists) {
-      db.prepare('UPDATE global_settings SET value = ? WHERE key = ?').run(String(value), key);
-    } else {
-      db.prepare('INSERT INTO global_settings (key, value) VALUES (?, ?)').run(key, String(value));
+router.put('/', requireAdmin, async (req, res) => {
+  try {
+    const updates = req.body;
+    for (const [key, value] of Object.entries(updates)) {
+      const exists = await db.query('SELECT key FROM global_settings WHERE key = $1', [key]);
+      if (exists.rows.length > 0) {
+        await db.query('UPDATE global_settings SET value = $1 WHERE key = $2', [String(value), key]);
+      } else {
+        await db.query('INSERT INTO global_settings (key, value) VALUES ($1, $2)', [key, String(value)]);
+      }
     }
-  }
-  const rows = db.prepare('SELECT * FROM global_settings').all();
-  const obj = {};
-  rows.forEach((r) => (obj[r.key] = r.value));
-  res.json(obj);
+    const rows = await db.query('SELECT * FROM global_settings');
+    const obj = {};
+    rows.rows.forEach((r) => (obj[r.key] = r.value));
+    res.json(obj);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 module.exports = router;

@@ -1,129 +1,77 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const db = require("../db");
-const { requireAuth, requireAdmin } = require("../auth");
+const db = require('../db');
+const { requireAuth, requireAdmin } = require('../auth');
 
-function parseQ(row) {
-  if (!row) return null;
-  return {
-    ...row,
-    options: row.options ? JSON.parse(row.options) : [],
-    type: row.type || "multiple_choice",
-  };
-}
-
-router.get("/", requireAuth, (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   try {
     const { subjectId } = req.query;
-    const rows = subjectId
-      ? db.prepare("SELECT * FROM questions WHERE subjectId = ?").all(subjectId)
-      : db.prepare("SELECT * FROM questions").all();
-
-    if (req.user.role === "student" && subjectId) {
-      const subject = db
-        .prepare("SELECT * FROM subjects WHERE id = ?")
-        .get(subjectId);
-      // ✅ Ստուգում ենք ակտիվությունը
-      if (!subject || subject.isActive === 0) {
-        return res.status(403).json({ error: "Այս քննությունը ակտիվ չէ:" });
-      }
+    let query = 'SELECT * FROM questions';
+    let params = [];
+    if (subjectId) {
+      query += ' WHERE "subjectId" = $1';
+      params.push(subjectId);
     }
+    const rows = await db.query(query, params);
 
-    if (req.user.role === "student") {
-      const subject = subjectId
-        ? db.prepare("SELECT * FROM subjects WHERE id = ?").get(subjectId)
-        : null;
-      let qs = rows.map(parseQ);
-
-      if (subject && subject.questionsCount > 0) {
-        qs = qs.sort(() => Math.random() - 0.5);
-        qs = qs.slice(0, subject.questionsCount);
-      } else if (subject?.shuffleQuestions) {
-        qs = qs.sort(() => Math.random() - 0.5);
-      }
-
+    if (req.user.role === 'student' && subjectId) {
+      const subjRes = await db.query('SELECT * FROM subjects WHERE id = $1', [subjectId]);
+      const subject = subjRes.rows[0];
+      
+      if (!subject || subject.isactive === 0) return res.status(403).json({ error: 'Ակտիվ չէ' });
+      
+      let qs = rows.rows.map(r => ({ ...r, options: r.options ? JSON.parse(r.options) : [] }));
+      
+      // ✅ ՍԵՐՎԵՐԸ ՈՒՂՂԱԿԻ ՈՒՂԱՐԿՈՒՄ Է ԲՈԼՈՐ ՀԱՐՑԵՐԸ, ԻՍԿ FRONTEND-Ը ԻՆՔԸ ԿԽԱՌՆԻ
       return res.json(qs.map(({ correct, ...rest }) => rest));
     }
-    res.json(rows.map(parseQ));
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.json(rows.rows.map(r => ({ ...r, options: r.options ? JSON.parse(r.options) : [] })));
+  } catch (e) { 
+    console.error("GET questions error:", e);
+    res.status(500).json({ error: e.message }); 
   }
 });
 
-router.post("/", requireAdmin, (req, res) => {
+router.post('/', requireAdmin, async (req, res) => {
   try {
-    const {
-      subjectId,
-      type = "multiple_choice",
-      text,
-      options,
-      correct,
-      points = 1,
-    } = req.body;
-    if (!subjectId || !text?.trim())
-      return res.status(400).json({ error: "Անվավեր տվյալներ" });
-
-    const id = "q-" + Date.now() + Math.floor(Math.random() * 100);
-    const optionsJson = type === "text" ? null : JSON.stringify(options);
-    const correctVal = type === "text" ? null : correct;
-
-    db.prepare(
-      "INSERT INTO questions (id, subjectId, type, text, options, correct, points) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    ).run(id, subjectId, type, text.trim(), optionsJson, correctVal, +points);
-
-    res.json(
-      parseQ(db.prepare("SELECT * FROM questions WHERE id = ?").get(id)),
-    );
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+    const { subjectId, type = 'multiple_choice', text, options, correct, points = 1 } = req.body;
+    if (!subjectId || !text?.trim()) return res.status(400).json({ error: 'Անվավեր տվյալներ' });
+    const id = 'q-' + Date.now() + Math.floor(Math.random()*100);
+    const optionsJson = type === 'text' ? null : JSON.stringify(options);
+    const correctVal = type === 'text' ? null : correct;
+    
+    await db.query('INSERT INTO questions (id, "subjectId", type, text, options, correct, points) VALUES ($1, $2, $3, $4, $5, $6, $7)', 
+      [id, subjectId, type, text.trim(), optionsJson, correctVal, +points]);
+    
+    const result = await db.query('SELECT * FROM questions WHERE id = $1', [id]);
+    res.json({ ...result.rows[0], options: optionsJson ? JSON.parse(optionsJson) : [] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.put("/:id", requireAdmin, (req, res) => {
+router.put('/:id', requireAdmin, async (req, res) => {
   try {
-    const existing = db
-      .prepare("SELECT * FROM questions WHERE id = ?")
-      .get(req.params.id);
-    if (!existing) return res.status(404).json({ error: "Չի գտնվել" });
+    const existingRes = await db.query('SELECT * FROM questions WHERE id = $1', [req.params.id]);
+    if (existingRes.rows.length === 0) return res.status(404).json({ error: 'Չի գտնվել' });
+    const existing = existingRes.rows[0];
 
     const { type, text, options, correct, points } = req.body;
     const newType = type ?? existing.type;
-    const optionsJson =
-      newType === "text"
-        ? null
-        : options !== undefined
-          ? JSON.stringify(options)
-          : existing.options;
-    const correctVal =
-      newType === "text"
-        ? null
-        : correct !== undefined
-          ? correct
-          : existing.correct;
+    const optionsJson = newType === 'text' ? null : (options !== undefined ? JSON.stringify(options) : existing.options);
+    const correctVal = newType === 'text' ? null : (correct !== undefined ? correct : existing.correct);
 
-    db.prepare(
-      "UPDATE questions SET type = ?, text = ?, options = ?, correct = ?, points = ? WHERE id = ?",
-    ).run(
-      newType,
-      text?.trim() ?? existing.text,
-      optionsJson,
-      correctVal,
-      points ?? existing.points,
-      req.params.id,
-    );
-    res.json(
-      parseQ(
-        db.prepare("SELECT * FROM questions WHERE id = ?").get(req.params.id),
-      ),
-    );
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+    await db.query('UPDATE questions SET type = $1, text = $2, options = $3, correct = $4, points = $5 WHERE id = $6', 
+      [newType, text?.trim() ?? existing.text, optionsJson, correctVal, points ?? existing.points, req.params.id]);
+    
+    const result = await db.query('SELECT * FROM questions WHERE id = $1', [req.params.id]);
+    res.json({ ...result.rows[0], options: result.rows[0].options ? JSON.parse(result.rows[0].options) : [] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete("/:id", requireAdmin, (req, res) => {
-  db.prepare("DELETE FROM questions WHERE id = ?").run(req.params.id);
-  res.json({ ok: true });
+router.delete('/:id', requireAdmin, async (req, res) => {
+  try {
+    await db.query('DELETE FROM questions WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 module.exports = router;
