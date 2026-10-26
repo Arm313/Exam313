@@ -12,7 +12,6 @@ export default function AdminDashboard({ user }) {
   const [questions, setQuestions] = useState([]);
   const [stats, setStats] = useState({ subjects: 0, questions: 0, students: 0 });
   
-  // ✅ Loading վիճակներ
   const [loading, setLoading] = useState(true);
   const [qLoading, setQLoading] = useState(false);
   const [savingSubject, setSavingSubject] = useState(false);
@@ -60,6 +59,8 @@ export default function AdminDashboard({ user }) {
       try { parsedGroups = typeof s.allowedGroups === 'string' ? JSON.parse(s.allowedGroups) : (s.allowedGroups || []); } catch (e) {}
       setSubjectForm({ ...s, allowedGroups: parsedGroups });
     }
+    setEditingQId(null);
+    setQForm(emptyForm);
   }, [selectedId, subjects]);
 
   const addSubject = async () => {
@@ -143,6 +144,42 @@ export default function AdminDashboard({ user }) {
     setQuestions(qs);
   };
 
+  // ✅ ՎԵՐԱԿԱՆԳՆՎԱԾ Է EXCEL-ԻՑ ՆԵՐՄՈՒԾՈՒՄԸ
+  const handleBulkImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        const formatted = data.map(row => {
+          const isText = row['Տեսակ'] === 'Տեքստ';
+          return {
+            type: isText ? 'text' : 'multiple_choice',
+            text: row['Հարց'] || 'Անանուն հարց',
+            options: isText ? [] : [row['A'] || '', row['B'] || '', row['C'] || '', row['D'] || ''],
+            correct: isText ? null : ['A','B','C','D'].indexOf(row['Ճիշտ'] || 'A'),
+            points: Number(row['Միավոր']) || 1
+          };
+        });
+
+        const res = await api.bulkImportQuestions(selectedId, formatted);
+        alert(`✅ Հաջողությամբ ավելացվեց ${res.added} հարց`);
+        const qs = await api.getQuestions(selectedId);
+        setQuestions(qs);
+      } catch (err) {
+        alert('❌ Սխալ ֆայլի ձևաչափ: ' + err.message);
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = null;
+  };
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-dark-bg"><i className="fa-solid fa-spinner fa-spin text-4xl text-brand-500"></i></div>;
   }
@@ -171,7 +208,13 @@ export default function AdminDashboard({ user }) {
         <div className="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-bold"><i className="fa-solid fa-folder-plus text-brand-500 mr-2"></i>Առարկաներ</h3>
+            {/* ✅ ՎԵՐԱԿԱՆԳՆՎԱԾ Է IMPORT ԿՈՃԱԿԸ */}
+            <label className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs cursor-pointer inline-block transition-colors" title="Ներմուծել Excel-ից">
+              <i className="fa-solid fa-file-excel mr-1"></i> Import
+              <input type="file" accept=".xlsx,.csv" onChange={handleBulkImport} className="hidden" disabled={!selectedId} />
+            </label>
           </div>
+          
           <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}
             className="w-full bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-brand-500">
             <option value="">— Ընտրեք —</option>
@@ -180,6 +223,7 @@ export default function AdminDashboard({ user }) {
 
           {selectedId && subjectForm && (
             <div className="p-4 bg-gray-50 dark:bg-dark-bg/60 border border-gray-200 dark:border-dark-border rounded-xl space-y-3">
+              
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold uppercase text-gray-500">Կարգավորումներ</h4>
                 <button onClick={() => setEditingSubject((v) => !v)} className="text-brand-500 text-xs"><i className={`fa-solid ${editingSubject ? 'fa-xmark' : 'fa-pen'}`}></i></button>
@@ -188,8 +232,8 @@ export default function AdminDashboard({ user }) {
                 <>
                   <input value={subjectForm.name} onChange={(e) => setSubjectForm({ ...subjectForm, name: e.target.value })} className="w-full bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-lg p-2.5 text-sm" />
                   <div className="grid grid-cols-2 gap-2">
-                    <input type="number" value={subjectForm.timerMinutes} onChange={(e) => setSubjectForm({ ...subjectForm, timerMinutes: +e.target.value })} className="w-full bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-lg p-2.5 text-sm" placeholder="Րոպե" />
-                    <input type="number" value={subjectForm.passMarkPercent} onChange={(e) => setSubjectForm({ ...subjectForm, passMarkPercent: +e.target.value })} className="w-full bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-lg p-2.5 text-sm" placeholder="Շեմ" />
+                    <input type="number" inputMode="numeric" value={subjectForm.timerMinutes} onChange={(e) => setSubjectForm({ ...subjectForm, timerMinutes: +e.target.value })} className="w-full bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-lg p-2.5 text-sm" placeholder="Րոպե" />
+                    <input type="number" inputMode="numeric" value={subjectForm.passMarkPercent} onChange={(e) => setSubjectForm({ ...subjectForm, passMarkPercent: +e.target.value })} className="w-full bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-lg p-2.5 text-sm" placeholder="Շեմ" />
                   </div>
                   <button onClick={saveSubject} disabled={savingSubject} className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2">
                     {savingSubject ? <><i className="fa-solid fa-spinner fa-spin"></i> Պահպանվում...</> : <><i className="fa-solid fa-floppy-disk"></i> Պահպանել</>}
@@ -284,7 +328,7 @@ export default function AdminDashboard({ user }) {
               )}
               <div className={qForm.type === 'text' ? 'md:col-span-2' : ''}>
                 <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Միավոր</label>
-                <input type="number" min="1" max="100" value={qForm.points} onChange={(e) => setQForm({ ...qForm, points: +e.target.value })} className="w-full bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border rounded-xl p-3 text-sm focus:outline-none focus:border-brand-500" />
+                <input type="number" inputMode="numeric" min="1" max="100" value={qForm.points} onChange={(e) => setQForm({ ...qForm, points: +e.target.value })} className="w-full bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border rounded-xl p-3 text-sm focus:outline-none focus:border-brand-500" />
               </div>
             </div>
             <button type="submit" disabled={!selectedId || savingQuestion} className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl text-sm transition-colors mt-2 flex items-center justify-center gap-2">

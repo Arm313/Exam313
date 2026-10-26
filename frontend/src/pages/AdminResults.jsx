@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { NOTO_ARMENIAN_BASE64 } from '../utils/fonts';
 
 export default function AdminResults() {
@@ -71,6 +72,48 @@ export default function AdminResults() {
     } catch (e) { alert(e.message); setLoading(false); }
   };
 
+  // ✅ Excel ներբեռնում (յուրաքանչյուր տողի համար)
+  const exportExcel = () => {
+    const dataToExport = selectedIds.length > 0 ? filteredResults.filter(r => selectedIds.includes(r.id)) : filteredResults;
+    if (!dataToExport.length) return alert('Արդյունքներ չկան');
+    
+    const data = dataToExport.map((r, i) => ({
+      '№': i + 1, 'Ուսանող': r.studentName, 'Խումբ': r.studentGroup, 'Առարկա': r.subjectName,
+      'Միավոր': r.score, 'Տոկոս': `${r.percentage}%`, 
+      'Կարգավիճակ': r.isArchived ? 'Արխիվ' : r.needsGrading ? 'Սպասում է' : r.passed ? 'Անցել է' : 'Չի անցել',
+      'Խախտումներ': r.violations || 0, 'Ամսաթիվ': r.date,
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Արդյունքներ');
+    XLSX.writeFile(wb, `EduExam_Results_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  // ✅ PDF ներբեռնում (ընդհանուր աղյուսակի)
+  const exportPDF = () => {
+    const dataToExport = selectedIds.length > 0 ? filteredResults.filter(r => selectedIds.includes(r.id)) : filteredResults;
+    if (!dataToExport.length) return alert('Արդյունքներ չկան');
+
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    doc.addFileToVFS('NotoSansArmenian.ttf', NOTO_ARMENIAN_BASE64);
+    doc.addFont('NotoSansArmenian.ttf', 'NotoSansArmenian', 'normal');
+    doc.setFont('NotoSansArmenian');
+    doc.setFontSize(18);
+    doc.text('EduExam Pro — Արդյունքներ', 14, 16);
+    doc.setFontSize(10);
+    doc.text(`Արտահանման ամսաթիվ: ${new Date().toLocaleString('hy-AM')}`, 14, 23);
+    
+    autoTable(doc, {
+      startY: 30,
+      head: [['№', 'Ուսանող', 'Խումբ', 'Առարկա', 'Միավոր', 'Տոկոս', 'Կարգավիճակ', 'Խախտ.', 'Ամսաթիվ']],
+      body: dataToExport.map((r, i) => [i + 1, r.studentName, r.studentGroup, r.subjectName, r.score, `${r.percentage}%`, r.needsGrading ? 'Սպասում է' : r.passed ? 'Անցել է' : 'Չի անցել', r.violations || 0, new Date(r.date).toLocaleDateString('hy-AM')]),
+      styles: { font: 'NotoSansArmenian', fontSize: 8 },
+      headStyles: { fillColor: [22, 163, 74], font: 'NotoSansArmenian' },
+      bodyStyles: { font: 'NotoSansArmenian' },
+    });
+    doc.save(`EduExam_Results_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   const handleGrade = async (resultId, questionId, earnedPoints, maxPoints) => {
     const safePoints = Math.min(Number(earnedPoints), maxPoints);
     setGrading(true);
@@ -120,11 +163,17 @@ export default function AdminResults() {
     doc.text(`Ամսաթիվ: ${new Date(studentDetail.date).toLocaleString('hy-AM')}`, 14, 35);
     doc.text(`Միավոր: ${studentDetail.score} (${studentDetail.percentage}%)`, 14, 40);
     if (studentDetail.studentEmail) doc.text(`Email: ${studentDetail.studentEmail}`, 14, 45);
+    
     if (studentDetail.answers && Array.isArray(studentDetail.answers)) {
       autoTable(doc, {
         startY: 55,
         head: [['#', 'Հարց', 'Ուսանողի պատասխանը', 'Ճիշտ պատասխանը', 'Միավոր']],
-        body: studentDetail.answers.map((a, i) => [i + 1, a.text, a.type === 'text' ? (a.selected || '—') : (a.selected !== null && a.options && a.options[a.selected] ? a.options[a.selected] : '—'), a.type === 'text' ? '—' : (a.options && a.options[a.correct] ? a.options[a.correct] : '—'), a.type === 'text' ? `${a.earnedPoints ?? 0}/${a.points}` : (a.isCorrect ? `✅ ${a.points}` : `❌ 0`)]),
+        body: studentDetail.answers.map((a, i) => [
+          i + 1, a.text, 
+          a.type === 'text' ? (a.selected || '—') : (a.selected !== null && a.options && a.options[a.selected] ? a.options[a.selected] : '—'),
+          a.type === 'text' ? '—' : (a.options && a.options[a.correct] ? a.options[a.correct] : '—'),
+          a.type === 'text' ? `${a.earnedPoints ?? 0}/${a.points}` : (a.isCorrect ? `✅ ${a.points}` : `❌ 0`)
+        ]),
         styles: { font: 'NotoSansArmenian', fontSize: 8 },
         headStyles: { fillColor: [22, 163, 74], font: 'NotoSansArmenian' },
         bodyStyles: { font: 'NotoSansArmenian' },
@@ -173,9 +222,16 @@ export default function AdminResults() {
             </select>
           </div>
         </div>
-        <button onClick={load} disabled={loading} className="bg-brand-600 text-white text-xs font-semibold px-3 py-2 rounded-xl flex items-center gap-2">
-          {loading ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-rotate-right"></i>} Թարմացնել
-        </button>
+        
+        {/* ✅ ԱՅՍՏԵՂ Է ՓՈՓՈԽՎԵԼԸ. Թարմացնելու փոխարեն Excel և PDF */}
+        <div className="flex gap-2">
+          <button onClick={exportExcel} className="bg-emerald-600 text-white text-xs font-semibold px-3 py-2 rounded-xl flex items-center gap-1">
+            <i className="fa-solid fa-file-excel"></i> Excel
+          </button>
+          <button onClick={exportPDF} className="bg-red-600 text-white text-xs font-semibold px-3 py-2 rounded-xl flex items-center gap-1">
+            <i className="fa-solid fa-file-pdf"></i> PDF
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -251,7 +307,6 @@ export default function AdminResults() {
         </>
       )}
 
-      {/* ✅ ՄՈԴԱԼ - ԳՆԱՀԱՏՄԱՄԲ ԵՎ ԽՄԲԱԳՐՄԱՄԲ */}
       {detail && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDetail(null)}>
           <div className="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-3xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -281,7 +336,6 @@ export default function AdminResults() {
                         {a.selected || 'Չի պատասխանել'}
                       </div>
 
-                      {/* ✅ ԳՆԱՀԱՏՄԱՆ ԵՎ ԽՄԲԱԳՐՄԱՆ ՀԱՏՎԱԾԸ */}
                       {a.earnedPoints == null ? (
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-amber-600 dark:text-amber-400">Միավոր (0-{a.points}):</span>
