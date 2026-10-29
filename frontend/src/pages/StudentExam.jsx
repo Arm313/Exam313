@@ -52,10 +52,7 @@ export default function StudentExam({ user }) {
     setStep("loading");
 
     try {
-      const [subs, st] = await Promise.all([
-        api.getSubjects(),
-        api.getSettings(),
-      ]);
+   const [subs, st] = await Promise.all([api.getSubjectsPublic(), api.getSettings()])
       setSettings(st);
 
       const list = [];

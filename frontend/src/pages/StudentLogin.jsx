@@ -13,7 +13,7 @@ export default function StudentLogin({ onLogin }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    api.getGroups().then(setGroups).catch(console.error);
+    api.getGroupsPublic().then(setGroups).catch(console.error);
   }, []);
 
   const submit = async (e) => {

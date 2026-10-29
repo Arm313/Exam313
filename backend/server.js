@@ -4,12 +4,11 @@ const cors = require('cors');
 require('./db');
 
 const app = express();
-// app.use(cors());
 
 app.use(cors({
   origin: [
     'http://localhost:5173', 
-    'https://eduexam-pro.vercel.app' // <--- Այստեղ դիր Vercel-ի քո իրական հասցեն
+    'https://eduexam-pro.vercel.app'
   ],
   credentials: true
 }));
@@ -23,6 +22,9 @@ app.use('/api/results', require('./routes/results'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/bulk', require('./routes/bulk'));
 app.use('/api/groups', require('./routes/groups'));
+
+// ✅ ՍԱՆՔ ԱՄԵՆԱԿԱՐԵՎՈՐՆ Է
+app.use('/api/links', require('./routes/links'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

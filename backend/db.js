@@ -11,16 +11,17 @@ const initDB = async () => {
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS admins (
-        id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, "passwordHash" TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'admin', "createdAt" TEXT NOT NULL, "createdBy" TEXT
+        id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, "passwordHash" TEXT NOT NULL, 
+        role TEXT NOT NULL DEFAULT 'teacher', "createdAt" TEXT NOT NULL, "createdBy" TEXT
       );
       CREATE TABLE IF NOT EXISTS groups (
-        id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL
+        id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, "teacherId" TEXT
       );
       CREATE TABLE IF NOT EXISTS subjects (
         id TEXT PRIMARY KEY, name TEXT NOT NULL, "timerMinutes" INTEGER DEFAULT 15, "passMarkPercent" INTEGER DEFAULT 60, 
         "shuffleQuestions" INTEGER DEFAULT 0, "showAnswersAfter" INTEGER DEFAULT 1, "allowRetake" INTEGER DEFAULT 1, 
         "maxAttempts" INTEGER DEFAULT 0, "startTime" TEXT, "endTime" TEXT, "questionsCount" INTEGER DEFAULT 0, "isActive" INTEGER DEFAULT 0,
-        "allowedGroups" TEXT DEFAULT '[]'
+        "allowedGroups" TEXT DEFAULT '[]', "teacherId" TEXT
       );
       CREATE TABLE IF NOT EXISTS questions (
         id TEXT PRIMARY KEY, "subjectId" TEXT NOT NULL, type TEXT DEFAULT 'multiple_choice', text TEXT NOT NULL, options TEXT, correct INTEGER, points INTEGER DEFAULT 1
@@ -29,7 +30,18 @@ const initDB = async () => {
         id TEXT PRIMARY KEY, "studentName" TEXT NOT NULL, "studentGroup" TEXT NOT NULL, "subjectId" TEXT, "subjectName" TEXT NOT NULL, score TEXT NOT NULL, percentage INTEGER NOT NULL, passed INTEGER NOT NULL, violations INTEGER DEFAULT 0, "submissionReason" TEXT, answers TEXT, "questionIds" TEXT, date TEXT NOT NULL, "needsGrading" INTEGER DEFAULT 0, "isArchived" INTEGER DEFAULT 0, "studentEmail" TEXT
       );
       CREATE TABLE IF NOT EXISTS global_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+      
+      -- ✅ ԱՅՍ ԱՂՅՈՒՍԱԿՆ ԷՐ ԲԱՑԱԿԱՅՈՒՄ
+      CREATE TABLE IF NOT EXISTS exam_links (
+        id TEXT PRIMARY KEY, "subjectId" TEXT NOT NULL, "studentName" TEXT, "studentGroup" TEXT, "teacherId" TEXT, "createdAt" TEXT
+      );
+      ALTER TABLE questions ADD COLUMN IF NOT EXISTS "isArchived" INTEGER DEFAULT 0;
     `);
+
+    // ✅ ԱՎԵԼԱՑՆՈՒՄ ԵՆՔ ԲԱՑԱԿԱՅԱ ՍՅՈՒՆԱԿՆԵՐԸ (եթե հին բազա ունեք)
+    await pool.query(`ALTER TABLE groups ADD COLUMN IF NOT EXISTS "teacherId" TEXT;`);
+    await pool.query(`ALTER TABLE subjects ADD COLUMN IF NOT EXISTS "teacherId" TEXT;`);
+    await pool.query(`ALTER TABLE admins ALTER COLUMN role SET DEFAULT 'teacher';`);
 
     const adminRes = await pool.query("SELECT COUNT(*) as c FROM admins WHERE role = 'super'");
     if (parseInt(adminRes.rows[0].c) === 0) {
@@ -49,7 +61,7 @@ const initDB = async () => {
         await pool.query('INSERT INTO global_settings (key, value) VALUES ($1, $2)', [key, value]);
       }
     }
-    console.log('✅ Neon PostgreSQL Database Connected.');
+    console.log('✅ Neon PostgreSQL Database Connected & Updated.');
   } catch (error) {
     console.error('❌ Database init error:', error);
   }

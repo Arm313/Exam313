@@ -13,7 +13,7 @@ router.get('/', requireSuper, async (req, res) => {
 
 router.post('/', requireSuper, async (req, res) => {
   try {
-    const { username, password, role = 'admin' } = req.body;
+    const { username, password, role = 'teacher' } = req.body; // Փոխեցինք default-ը teacher-ի
     if (!username?.trim() || !password || password.length < 4) {
       return res.status(400).json({ error: 'Մուտքանուն և գաղտնաբառ (min 4 նիշ) պարտադիր են' });
     }

@@ -114,14 +114,22 @@ router.get('/', requireAuth, async (req, res) => {
   try {
     let query = 'SELECT * FROM results';
     let params = [];
+
     if (req.user.role === 'student') {
       query += ' WHERE "studentName" = $1 AND "studentGroup" = $2 AND "isArchived" = 0 ORDER BY date DESC';
       params = [req.user.name, req.user.group];
-    } else {
+    } else if (req.user.role === 'super') {
+      // ✅ Գլխավոր ադմին — տեսնում է բոլորին
       query += ' ORDER BY date DESC';
+    } else {
+      // ✅ Դասախոս/ադմին — տեսնում է ՄԻԱՅՆ իր առարկաների արդյունքները
+      query += ` WHERE "subjectId" IN (
+        SELECT id FROM subjects WHERE "teacherId" = $1
+      ) ORDER BY date DESC`;
+      params = [req.user.adminId];
     }
+
     const rows = await db.query(query, params);
-    
     res.json(rows.rows.map(r => ({
       ...r, 
       studentEmail: r.studentEmail ?? r.studentemail,

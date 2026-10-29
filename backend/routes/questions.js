@@ -8,10 +8,22 @@ router.get('/', requireAuth, async (req, res) => {
     const { subjectId } = req.query;
     let query = 'SELECT * FROM questions';
     let params = [];
+    let conditions = [];
+
     if (subjectId) {
-      query += ' WHERE "subjectId" = $1';
+      conditions.push(`"subjectId" = $${params.length + 1}`);
       params.push(subjectId);
     }
+
+    // ✅ Ուսանողին արխիվացվածները չենք ցույց տալիս, ադմինին՝ ցույց ենք տալիս
+    if (req.user.role === 'student') {
+      conditions.push(`"isArchived" = 0`);
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
     const rows = await db.query(query, params);
 
     if (req.user.role === 'student' && subjectId) {
@@ -22,7 +34,6 @@ router.get('/', requireAuth, async (req, res) => {
       
       let qs = rows.rows.map(r => ({ ...r, options: r.options ? JSON.parse(r.options) : [] }));
       
-      // ✅ ՍԵՐՎԵՐԸ ՈՒՂՂԱԿԻ ՈՒՂԱՐԿՈՒՄ Է ԲՈԼՈՐ ՀԱՐՑԵՐԸ, ԻՍԿ FRONTEND-Ը ԻՆՔԸ ԿԽԱՌՆԻ
       return res.json(qs.map(({ correct, ...rest }) => rest));
     }
     res.json(rows.rows.map(r => ({ ...r, options: r.options ? JSON.parse(r.options) : [] })));
@@ -70,6 +81,22 @@ router.put('/:id', requireAdmin, async (req, res) => {
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     await db.query('DELETE FROM questions WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ✅ ՆՈՐ. Հարցը Արխիվացնել
+router.put('/:id/archive', requireAdmin, async (req, res) => {
+  try {
+    await db.query('UPDATE questions SET "isArchived" = 1 WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ✅ ՆՈՐ. Հարցը Վերականգնել
+router.put('/:id/restore', requireAdmin, async (req, res) => {
+  try {
+    await db.query('UPDATE questions SET "isArchived" = 0 WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

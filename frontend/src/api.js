@@ -16,7 +16,6 @@ async function request(path, { method = 'GET', body, needAuth = true } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  // ⚠️ ՓՈՓՈԽՈՒԹՅՈՒՆ: Այստեղ ավելացրինք ստուգում, որ Login էջում 401-ը չջնջի սեսիան
   if (res.status === 401 && needAuth) {
     auth.clear();
     throw new Error('Սեսիան ավարտվել է, խնդրում ենք նորից մուտք գործել');
@@ -38,12 +37,14 @@ export const api = {
   updateAdminPassword: (id, password) => request(`/admins/${id}/password`, { method: 'PUT', body: { password } }),
   deleteAdmin: (id) => request(`/admins/${id}`, { method: 'DELETE' }),
 
-  getSubjects: () => request('/subjects', { needAuth: false }), // ✅ Թույլ ենք տալիս կարդալ նաև Login-ից առաջ
+  // ✅ ԱՅՍՏԵՂ ՀԵՌԱՑՐԻՆՔ needAuth: false-Ը
+  getSubjects: () => request('/subjects'), 
   addSubject: (data) => request('/subjects', { method: 'POST', body: data }),
   updateSubject: (id, data) => request(`/subjects/${id}`, { method: 'PUT', body: data }),
   deleteSubject: (id) => request(`/subjects/${id}`, { method: 'DELETE' }),
 
-  getGroups: () => request('/groups', { needAuth: false }), // ✅ Սա ամենակարևորն է
+  // ✅ ԱՅՍՏԵՂ ԷԼ ՀԵՌԱՑՐԻՆՔ needAuth: false-Ը
+  getGroups: () => request('/groups'), 
   addGroup: (name) => request('/groups', { method: 'POST', body: { name } }),
   deleteGroup: (id) => request(`/groups/${id}`, { method: 'DELETE' }),
   updateGroup: (id, name) => request(`/groups/${id}`, { method: 'PUT', body: { name } }), 
@@ -52,6 +53,8 @@ export const api = {
   addQuestion: (data) => request('/questions', { method: 'POST', body: data }),
   updateQuestion: (id, data) => request(`/questions/${id}`, { method: 'PUT', body: data }),
   deleteQuestion: (id) => request(`/questions/${id}`, { method: 'DELETE' }),
+  archiveQuestion: (id) => request(`/questions/${id}/archive`, { method: 'PUT' }),
+  restoreQuestion: (id) => request(`/questions/${id}/restore`, { method: 'PUT' }),
   bulkImportQuestions: (subjectId, questions) => request('/bulk/questions', { method: 'POST', body: { subjectId, questions } }),
 
   getResults: () => request('/results'),
@@ -64,6 +67,6 @@ export const api = {
   deleteResult: (id) => request(`/results/${id}`, { method: 'DELETE' }),
   clearResults: () => request('/results', { method: 'DELETE' }),
 
-  getSettings: () => request('/settings', { needAuth: false }), // ✅ Սա էլ թույլ ենք տալիս
+  getSettings: () => request('/settings', { needAuth: false }),
   saveSettings: (data) => request('/settings', { method: 'PUT', body: data }),
 };

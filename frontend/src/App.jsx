@@ -8,6 +8,7 @@ import Landing from './pages/Landing.jsx';
 import StudentLogin from './pages/StudentLogin.jsx';
 import AdminLogin from './pages/AdminLogin.jsx';
 import StudentExam from './pages/StudentExam.jsx';
+import StudentJoinLink from './pages/StudentJoinLink.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import AdminResults from './pages/AdminResults.jsx';
 import AdminSettings from './pages/AdminSettings.jsx';
@@ -18,8 +19,7 @@ import Header from './components/Header.jsx';
 function Protected({ role, children }) {
   const user = auth.getUser();
   if (!user) return <Navigate to="/" replace />;
-  
-  if (role === 'admin' && user.role !== 'admin' && user.role !== 'super') {
+  if (role === 'admin' && user.role !== 'admin' && user.role !== 'super' && user.role !== 'teacher') {
     return <Navigate to="/student/exam" replace />;
   }
   if (role === 'student' && user.role !== 'student') {
@@ -35,36 +35,17 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Բեռնում ենք համակարգի անունը և ստուգում սեսիան
-    api.getSettings()
-      .then(st => {
-        if (st.siteName) setSiteName(st.siteName);
-      })
-      .catch(() => {});
-      
+    api.getSettings().then(st => { if (st.siteName) setSiteName(st.siteName); }).catch(() => {});
     if (auth.isLoggedIn()) {
-      api.me()
-        .then(u => setUser(u))
-        .catch(() => { auth.clear(); setUser(null); })
-        .finally(() => setLoading(false));
+      api.me().then(u => setUser(u)).catch(() => { auth.clear(); setUser(null); }).finally(() => setLoading(false));
     } else {
       setLoading(false);
     }
   }, []);
 
-  const handleLogin = (u) => { 
-    auth.setUser(u); 
-    setUser(u); 
-  };
-  
-  const handleLogout = () => { 
-    auth.clear(); 
-    setUser(null); 
-  };
-  
-  const toggleTheme = () => { 
-    setCurrentTheme(theme.toggle()); 
-  };
+  const handleLogin = (u) => { auth.setUser(u); setUser(u); };
+  const handleLogout = () => { auth.clear(); setUser(null); };
+  const toggleTheme = () => { setCurrentTheme(theme.toggle()); };
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-dark-bg"><i className="fa-solid fa-spinner fa-spin text-3xl text-brand-500"></i></div>;
@@ -72,19 +53,16 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header 
-        user={user} 
-        onLogout={handleLogout} 
-        theme={currentTheme} 
-        onToggleTheme={toggleTheme} 
-        siteName={siteName} 
-      />
+      <Header user={user} onLogout={handleLogout} theme={currentTheme} onToggleTheme={toggleTheme} siteName={siteName} />
       <main className="flex-grow">
         <Routes>
           <Route path="/" element={<Landing user={user} />} />
-          
           <Route path="/student/login" element={<StudentLogin onLogin={handleLogin} />} />
           <Route path="/student/exam" element={<Protected role="student"><StudentExam user={user} /></Protected>} />
+          
+          {/* ✅ ԼԻՆԿՈՎ ՄՏՆՈՂՆԵՐԻ ՀԱՄԱՐ */}
+          <Route path="/exam/link/:linkId" element={<StudentJoinLink />} />
+          
           <Route path="/exam/:subjectId" element={<Protected role="student"><StudentExam user={user} /></Protected>} />
           
           <Route path="/admin/login" element={<AdminLogin onLogin={handleLogin} />} />

@@ -26,8 +26,8 @@ function requireAuth(req, res, next) {
 
 function requireAdmin(req, res, next) {
   requireAuth(req, res, () => {
-    if (req.user.role !== 'admin' && req.user.role !== 'super') {
-      return res.status(403).json({ error: 'Միայն ադմինի համար' });
+    if (req.user.role !== 'admin' && req.user.role !== 'super' && req.user.role !== 'teacher') {
+      return res.status(403).json({ error: 'Միայն ադմինի/դասախոսի համար' });
     }
     next();
   });
