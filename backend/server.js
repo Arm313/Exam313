@@ -5,13 +5,31 @@ require('./db');
 
 const app = express();
 
+const cors = require('cors');
+
+// ✅ Թույլատրում ենք Vercel-ի և լոկալ դոմենները
+const allowedOrigins = [
+  'https://exam313.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+
 app.use(cors({
-  origin: [
-    'http://localhost:5173', 
-    'https://eduexam-pro.vercel.app'
-  ],
-  credentials: true
+  origin: function (origin, callback) {
+    // Թույլատրում ենք, եթե origin-ը կա ցանկում կամ բացակայում է (Postman, curl)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS-ը թույլ չի տալիս այս աղբյուրից'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// ✅ Կարևոր է preflight (OPTIONS) հարցումների համար
+app.options('*', cors())
 app.use(express.json());
 
 app.use('/api/auth', require('./routes/auth'));
