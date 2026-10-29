@@ -4,9 +4,6 @@ const cors = require('cors');
 require('./db');
 
 const app = express();
-
-const cors = require('cors');
-
 // ✅ Թույլատրում ենք Vercel-ի և լոկալ դոմենները
 const allowedOrigins = [
   'https://exam313.vercel.app',
