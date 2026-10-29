@@ -101,4 +101,18 @@ router.put('/:id/restore', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+router.put('/:id/archive', requireAdmin, async (req, res) => {
+  try {
+    await db.query('UPDATE questions SET "isArchived" = 1 WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/:id/restore', requireAdmin, async (req, res) => {
+  try {
+    await db.query('UPDATE questions SET "isArchived" = 0 WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;

@@ -61,7 +61,7 @@ export default function AdminDashboard({ user }) {
       setSubjects(subs);
       setGroups(grps);
       setAllQuestions(qs);
-      if (subs.length > 0 && !selectedId) setSelectedId(subs[0].id);
+      // if (subs.length > 0 && !selectedId) setSelectedId(subs[0].id);
 
       const uniqueStudents = new Set(rs.map((r) => r.studentName)).size;
       setStats({
