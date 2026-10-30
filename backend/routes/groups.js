@@ -11,16 +11,9 @@ router.get('/public', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ✅ Ադմինի — տեսնում է միայն իրենը (super-ը՝ բոլորը)
-router.get('/', requireAdmin, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    let query = 'SELECT * FROM groups';
-    let params = [];
-    if (req.user.role !== 'super') {
-      query += ' WHERE "teacherId" = $1';
-      params = [req.user.adminId];
-    }
-    const result = await db.query(query + ' ORDER BY name ASC', params);
+    const result = await db.query('SELECT * FROM groups ORDER BY name ASC');
     res.json(result.rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

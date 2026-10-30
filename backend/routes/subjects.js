@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { requireAdmin } = require('../auth');
+const { requireAuth } = require('../auth');
 
-// ✅ Հանրային — ուսանողի համար
+// ✅ Հանրային — ուսանողի համար (ԱՌԱՆՑ TOKEN-Ի)
 router.get('/public', async (req, res) => {
   try {
     const result = await db.query('SELECT * FROM subjects');
@@ -29,12 +29,12 @@ router.get('/public', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/', requireAdmin, async (req, res) => {
+// ✅ Ադմինի համար — ՊԱՀԱՆՋՈՒՄ Է TOKEN
+router.get('/', requireAuth, async (req, res) => {
   try {
     let query = 'SELECT * FROM subjects';
     let params = [];
     
-    // ✅ Սովորական ադմին/դասախոս — տեսնում է ՄԻԱՅՆ իրենը
     if (req.user.role !== 'super') {
       query += ' WHERE "teacherId" = $1';
       params = [req.user.adminId];
@@ -64,7 +64,7 @@ router.get('/', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.post('/', requireAdmin, async (req, res) => {
+router.post('/', requireAuth, async (req, res) => {
   const { name, timerMinutes = 15, passMarkPercent = 60 } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Անունը պարտադիր է' });
   try {
@@ -78,7 +78,7 @@ router.post('/', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.put('/:id', requireAdmin, async (req, res) => {
+router.put('/:id', requireAuth, async (req, res) => {
   try {
     const existingRes = await db.query('SELECT * FROM subjects WHERE id = $1', [req.params.id]);
     if (existingRes.rows.length === 0) return res.status(404).json({ error: 'Չի գտնվել' });
@@ -106,7 +106,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const existing = await db.query('SELECT * FROM subjects WHERE id = $1', [req.params.id]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Չի գտնվել' });

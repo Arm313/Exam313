@@ -37,19 +37,23 @@ export const api = {
   updateAdminPassword: (id, password) => request(`/admins/${id}/password`, { method: 'PUT', body: { password } }),
   deleteAdmin: (id) => request(`/admins/${id}`, { method: 'DELETE' }),
 
-  // ✅ ԱՅՍՏԵՂ ՀԵՌԱՑՐԻՆՔ needAuth: false-Ը
-  getSubjects: () => request('/subjects'), 
+  // ✅ Առարկաներ
+  getSubjects: () => request('/subjects'),
+  getSubjectsPublic: () => request('/subjects/public', { needAuth: false }),
   addSubject: (data) => request('/subjects', { method: 'POST', body: data }),
   updateSubject: (id, data) => request(`/subjects/${id}`, { method: 'PUT', body: data }),
   deleteSubject: (id) => request(`/subjects/${id}`, { method: 'DELETE' }),
 
-  // ✅ ԱՅՍՏԵՂ ԷԼ ՀԵՌԱՑՐԻՆՔ needAuth: false-Ը
-  getGroups: () => request('/groups'), 
+  // ✅ Խմբեր
+  getGroups: () => request('/groups'),
+  getGroupsPublic: () => request('/groups/public', { needAuth: false }),
   addGroup: (name) => request('/groups', { method: 'POST', body: { name } }),
   deleteGroup: (id) => request(`/groups/${id}`, { method: 'DELETE' }),
   updateGroup: (id, name) => request(`/groups/${id}`, { method: 'PUT', body: { name } }), 
 
+  // ✅ Հարցեր
   getQuestions: (subjectId) => request(`/questions${subjectId ? '?subjectId=' + subjectId : ''}`),
+  getQuestionsPublic: (subjectId) => request(`/questions/public${subjectId ? '?subjectId=' + subjectId : ''}`, { needAuth: false }), // ✅ ՓՈԽՎԱԾ Է
   addQuestion: (data) => request('/questions', { method: 'POST', body: data }),
   updateQuestion: (id, data) => request(`/questions/${id}`, { method: 'PUT', body: data }),
   deleteQuestion: (id) => request(`/questions/${id}`, { method: 'DELETE' }),
@@ -57,6 +61,7 @@ export const api = {
   restoreQuestion: (id) => request(`/questions/${id}/restore`, { method: 'PUT' }),
   bulkImportQuestions: (subjectId, questions) => request('/bulk/questions', { method: 'POST', body: { subjectId, questions } }),
 
+  // ✅ Արդյունքներ
   getResults: () => request('/results'),
   getStudentsCount: () => request('/results/students-count'),
   getResult: (id) => request(`/results/${id}`),
@@ -67,6 +72,7 @@ export const api = {
   deleteResult: (id) => request(`/results/${id}`, { method: 'DELETE' }),
   clearResults: () => request('/results', { method: 'DELETE' }),
 
-  getSettings: () => request('/settings', { needAuth: false }),
+  // ✅ Կարգավորումներ
+  getSettings: () => request('/settings', { needAuth: false }), 
   saveSettings: (data) => request('/settings', { method: 'PUT', body: data }),
 };

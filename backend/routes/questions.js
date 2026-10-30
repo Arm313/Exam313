@@ -3,6 +3,37 @@ const router = express.Router();
 const db = require('../db');
 const { requireAuth, requireAdmin } = require('../auth');
 
+// ✅ ՀԱՆՐԱՅԻՆ — ուսանողի համար (ԱՌԱՆՑ TOKEN-Ի)
+router.get('/public', async (req, res) => {
+  try {
+    const { subjectId } = req.query;
+    let query = 'SELECT * FROM questions';
+    let params = [];
+    let conditions = [];
+
+    if (subjectId) {
+      conditions.push(`"subjectId" = $${params.length + 1}`);
+      params.push(subjectId);
+    }
+
+    // Ակտիվ հարցերը միայն (առանց արխիվացվածների)
+    conditions.push(`"isArchived" = 0`);
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    const rows = await db.query(query, params);
+    const qs = rows.rows.map(r => ({ ...r, options: r.options ? JSON.parse(r.options) : [] }));
+    
+    // ✅ Թաքցնում ենք ճիշտ պատասխանները ուսանողից
+    res.json(qs.map(({ correct, ...rest }) => rest));
+  } catch (e) { 
+    res.status(500).json({ error: e.message }); 
+  }
+});
+
+// ✅ ԱԴՄԻՆԻ — պահանջում է token
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { subjectId } = req.query;
@@ -15,32 +46,13 @@ router.get('/', requireAuth, async (req, res) => {
       params.push(subjectId);
     }
 
-    // ✅ Ուսանողին արխիվացվածները չենք ցույց տալիս, ադմինին՝ ցույց ենք տալիս
-    if (req.user.role === 'student') {
-      conditions.push(`"isArchived" = 0`);
-    }
-
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');
     }
 
     const rows = await db.query(query, params);
-
-    if (req.user.role === 'student' && subjectId) {
-      const subjRes = await db.query('SELECT * FROM subjects WHERE id = $1', [subjectId]);
-      const subject = subjRes.rows[0];
-      
-      if (!subject || subject.isactive === 0) return res.status(403).json({ error: 'Ակտիվ չէ' });
-      
-      let qs = rows.rows.map(r => ({ ...r, options: r.options ? JSON.parse(r.options) : [] }));
-      
-      return res.json(qs.map(({ correct, ...rest }) => rest));
-    }
     res.json(rows.rows.map(r => ({ ...r, options: r.options ? JSON.parse(r.options) : [] })));
-  } catch (e) { 
-    console.error("GET questions error:", e);
-    res.status(500).json({ error: e.message }); 
-  }
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/', requireAdmin, async (req, res) => {
@@ -56,6 +68,20 @@ router.post('/', requireAdmin, async (req, res) => {
     
     const result = await db.query('SELECT * FROM questions WHERE id = $1', [id]);
     res.json({ ...result.rows[0], options: optionsJson ? JSON.parse(optionsJson) : [] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/:id/archive', requireAdmin, async (req, res) => {
+  try {
+    await db.query('UPDATE questions SET "isArchived" = 1 WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/:id/restore', requireAdmin, async (req, res) => {
+  try {
+    await db.query('UPDATE questions SET "isArchived" = 0 WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -81,36 +107,6 @@ router.put('/:id', requireAdmin, async (req, res) => {
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     await db.query('DELETE FROM questions WHERE id = $1', [req.params.id]);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ✅ ՆՈՐ. Հարցը Արխիվացնել
-router.put('/:id/archive', requireAdmin, async (req, res) => {
-  try {
-    await db.query('UPDATE questions SET "isArchived" = 1 WHERE id = $1', [req.params.id]);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ✅ ՆՈՐ. Հարցը Վերականգնել
-router.put('/:id/restore', requireAdmin, async (req, res) => {
-  try {
-    await db.query('UPDATE questions SET "isArchived" = 0 WHERE id = $1', [req.params.id]);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.put('/:id/archive', requireAdmin, async (req, res) => {
-  try {
-    await db.query('UPDATE questions SET "isArchived" = 1 WHERE id = $1', [req.params.id]);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.put('/:id/restore', requireAdmin, async (req, res) => {
-  try {
-    await db.query('UPDATE questions SET "isArchived" = 0 WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
